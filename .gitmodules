@@ -1,0 +1,12 @@
+[submodule "osm-mec"]
+	path = osm-mec
+	url = https://github.com/ATNoG/osm-mec.git
+	branch = main
+[submodule "OSM"]
+	path = OSM
+	url = https://github.com/ATNoG/osm-mec-mano.git
+	branch = instantiation-node-selection
+[submodule "cadvisor-cnf"]
+	path = cadvisor-cnf
+	url = https://github.com/ATNoG/cadvisor-cnf.git
+	branch = main
