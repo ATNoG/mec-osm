@@ -29,6 +29,8 @@ This script will install OSM, configure necessary components, and deploy the MEC
 To add an edge to your MEC environment, you need to add a k8s cluster in OSM. For that, first create the cluster using k3s or other distribution and then run the following command:
 
 ```bash
+source ~/.bashrc
+
 osm vim-create --name <vim-cluster-name> --user dummy --password dummy --auth_url http://dummy.dummy --project dummy --account_type dummy
 
 osm k8scluster-add --creds <path-to-kubeconfig> --version '1.17' --vim <vim-cluster-name> --description "My cluster" --k8s-nets '{"net1": "osm-ext"}' <cluster-name>
