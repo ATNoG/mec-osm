@@ -51,7 +51,7 @@ helm -n osm-mec upgrade --install osm-mec deployment/helm-chart --create-namespa
     --set meao.monitoring.deployment.image=ghcr.io/atnog/osm-mec/meao-monitoring:main \
     --set meao.migration.deployment.image=ghcr.io/atnog/osm-mec/meao-migration:main \
     --set oss.deployment.image=ghcr.io/atnog/osm-mec/oss:main \
-    --set metricsForwarder.deployment.image=ghcr.io/atnog/osm-mec/forwarder:main \
+    --set metricsForwarder.deployment.image=ghcr.io/atnog/osm-mec/metrics-forwarder:main \
     --set osm.host=$OSM_NBI \
     --set cfsPortal.ossHost=$K8S_DEFAULT_IP \
     --set kafka.KAFKA_PRODUCER_CONFIG.sasl_plain_password=$KAFKA_PRODUCER_PASSWORD \
