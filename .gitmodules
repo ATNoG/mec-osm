@@ -10,3 +10,6 @@
 	path = cadvisor-cnf
 	url = https://github.com/ATNoG/cadvisor-cnf.git
 	branch = main
+[submodule "mec-federator"]
+	path = mec-federator
+	url = https://github.com/ATNoG/mec-federator.git
