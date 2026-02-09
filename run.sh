@@ -155,3 +155,11 @@ if [[ "$INSTALL_FEDERATOR" = true ]]; then
         --wait
     cd ..
 fi
+
+
+# Because the OSM client is broken at first (this is a quick fix, not a good fix)
+pip install pyangbind --break-system-packages
+pip install packaging --break-system-packages
+pip install verboselogs --break-system-packages
+pip install prettytable --break-system-packages
+pip install jsonpath-ng --break-system-packages
