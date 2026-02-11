@@ -24,6 +24,68 @@ Execute the `run.sh` script to install and configure the MEC environment.
 
 This script will install OSM, configure necessary components, and deploy the MEC services.
 
+#### Command line options
+
+The `run.sh` script accepts the following command line options:
+
+- `-f`: Install the MEC Federator
+- `-k`: Install Keycloak
+- `-i <ip>`: Keycloak IP address (required when `-k` is not used)
+- `-p <operator_id>`: Operator ID (required when `-k` is not used)
+- `-s <client_secret>`: Client secret (required when `-k` is not used)
+- `-t <client_ids>`: Comma-separated list of Keycloak client IDs (required when `-k` or `-f` is used). Multiple IDs should be separated by commas.
+- `-a <ips>`: Comma-separated list of federator IPs (required when `-f` is used)
+- `-n <passwords>`: Comma-separated list of SSL passwords (required when `-f` is used)
+- `-l <password>`: Kafka consumer password (required when `-f` is used)
+
+#### Examples
+
+##### Install with Keycloak and Federator
+
+To install the MEC environment with Keycloak and Federator:
+
+```bash
+./run.sh -k -p IT_AVEIRO -t "IT_AVEIRO,NOS" -a "10.255.41.197,10.255.41.185" -n "A5WA7YwIRe,UIqNLtSTxf"
+```
+
+##### Install with existing Keycloak and Federator
+
+To install the MEC environment with an existing Keycloak and Federator:
+
+```bash
+./run.sh -f -i 10.255.41.197 -p IT_AVEIRO -s "client-secret" -t "IT_AVEIRO,NOS" -a "10.255.41.197,10.255.41.185" -n "A5WA7YwIRe,UIqNLtSTxf" -l "consumer-password"
+```
+
+##### Install with IT_AVEIRO and NOS as Keycloak IDs
+
+To install the MEC environment with IT_AVEIRO and NOS as Keycloak IDs:
+
+```bash
+./run.sh -k -p IT_AVEIRO -t "IT_AVEIRO,NOS" -a "10.255.41.197,10.255.41.185" -n "A5WA7YwIRe,UIqNLtSTxf"
+```
+
+### Adding Additional Partners
+
+To add additional partners to the configuration, you can use Helm upgrade with the `--set` flag to specify the partner configuration. For example, to add a new partner called "NEW_PARTNER":
+
+```bash
+helm -n osm-mec upgrade osm-mec deployment/helm-chart \
+    --set metricsForwarder.partnersConfig.NEW_PARTNER.bootstrap_servers="10.255.41.198:31999" \
+    --set metricsForwarder.partnersConfig.NEW_PARTNER.security_protocol="SASL_PLAINTEXT" \
+    --set metricsForwarder.partnersConfig.NEW_PARTNER.sasl_mechanism="PLAIN" \
+    --set metricsForwarder.partnersConfig.NEW_PARTNER.sasl_plain_username="user1" \
+    --set metricsForwarder.partnersConfig.NEW_PARTNER.sasl_plain_password="new-password" \
+    --wait
+```
+
+Each partner configuration should include:
+- `bootstrap_servers`: The Kafka server address and port
+- `security_protocol`: The security protocol to use (e.g., "SASL_PLAINTEXT")
+- `sasl_mechanism`: The SASL mechanism (e.g., "PLAIN")
+- `sasl_plain_username`: The username for authentication
+- `sasl_plain_password`: The password for authentication
+
+
 ### Add the edges to your environment
 
 To add an edge to your MEC environment, you need to add a k8s cluster in OSM. For that, first create the cluster using k3s or other distribution and then run the following command:

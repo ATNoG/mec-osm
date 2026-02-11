@@ -1,33 +1,92 @@
 #!/bin/bash
 
-# Define Keycloak client IDs (if INSTALL_KEYCLOAK is set to true,
-# the first will be automatically used to setup this domain in the federator)
-KEYCLOAK_CLIENT_IDS=("IT_AVEIRO" "NOS")
+# Parse command line options using getopts
+while getopts "fkc:i:p:s:u:t:a:n:l:" opt; do
+  case $opt in
+    f)
+      INSTALL_FEDERATOR=true
+      ;;
+    k)
+      INSTALL_KEYCLOAK=true
+      ;;
+    i)
+      KEYCLOAK_IP="$OPTARG"
+      ;;
+    p)
+      OPERATOR_ID="$OPTARG"
+      ;;
+    s)
+      CLIENT_SECRET="$OPTARG"
+      ;;
+    t)
+      KEYCLOAK_CLIENT_IDS=($OPTARG)
+      ;;
+    a)
+      FEDERATOR_IPS=($OPTARG)
+      ;;
+    n)
+      SSL_PASSWORDS=($OPTARG)
+      ;;
+    l)
+      KAFKA_CONSUMER_PASSWORD="$OPTARG"
+      ;;
+    \?)
+      echo "Invalid option: -$OPTARG" >&2
+      exit 1
+      ;;
+    :)
+      echo "Option -$OPTARG requires an argument." >&2
+      exit 1
+      ;;
+  esac
+done
 
-INSTALL_FEDERATOR=${1:-false}
-INSTALL_KEYCLOAK=${2:-false}
+# Set default values
+INSTALL_FEDERATOR=${INSTALL_FEDERATOR:-false}
+INSTALL_KEYCLOAK=${INSTALL_KEYCLOAK:-false}
 
+CURRENT_IP=$(ip -o route get to 1.1.1.1 | sed -n 's/.*src \([0-9.]\+\).*/\1/p')
+
+# If INSTALL_KEYCLOAK is true, set KEYCLOAK_IP to the current machine's IP
 if [[ "$INSTALL_KEYCLOAK" = true ]]; then
-    KEYCLOAK_IP=$(ip -o route get to 1.1.1.1 | sed -n 's/.*src \([0-9.]\+\).*/\1/p')
+    KEYCLOAK_IP=$CURRENT_IP
 elif [[ "$INSTALL_FEDERATOR" = true ]]; then
-    if [[ -z "$3" ]]; then
+    if [[ -z "$KEYCLOAK_IP" ]]; then
         echo "Error: KEYCLOAK_IP must be provided when INSTALL_KEYCLOAK is false."
         exit 1
     fi
-    KEYCLOAK_IP=$3
 
-    if [[ -z "$4" ]]; then
-        echo "Error: OPERATOR_ID must be provided when INSTALL_KEYCLOAK is false."
-        exit 1
-    fi
-    OPERATOR_ID=$4
-
-    if [[ -z "$5" ]]; then
+    if [[ -z "$CLIENT_SECRET" ]]; then
         echo "Error: CLIENT_SECRET must be provided when INSTALL_KEYCLOAK is false."
         exit 1
     fi
-    CLIENT_SECRET=$5
 fi
+
+if [[ "$INSTALL_KEYCLOAK" = true || "$INSTALL_FEDERATOR" = true ]]; then
+    if [[ -z "$OPERATOR_ID" ]]; then
+        echo "Error: OPERATOR_ID must be provided when INSTALL_FEDERATOR or INSTALL_KEYCLOAK are true."
+        exit 1
+    fi
+
+    if [[ -z "$KEYCLOAK_CLIENT_IDS" ]]; then
+        KEYCLOAK_CLIENT_IDS=()
+    fi
+
+    KEYCLOAK_CLIENT_IDS=($OPERATOR_ID "${KEYCLOAK_CLIENT_IDS[@]:1}")
+fi
+
+if [[ "$INSTALL_FEDERATOR" = true ]]; then
+    if [[ -z "$FEDERATOR_IPS" ]]; then
+        FEDERATOR_IPS=()
+    fi
+
+    if [[ -z "$SSL_PASSWORDS" ]]; then
+        SSL_PASSWORDS=()
+    fi
+    
+    FEDERATOR_IPS=($CURRENT_IP "${FEDERATOR_IPS[@]:1}")
+fi
+
 
 KEYCLOAK_VERSION=7.1.7
 
@@ -67,6 +126,21 @@ KAFKA_PORT=$(kubectl get svc -n osm kafka-controller-0-external -o jsonpath='{.s
 KAFKA_PRODUCER_PASSWORD=$(kubectl get secret -n osm kafka-user-passwords -o jsonpath="{.data.client-passwords}" | base64 --decode)
 KAFKA_CONSUMER_PASSWORD=$(kubectl get secret -n osm kafka-user-passwords -o jsonpath="{.data.client-passwords}" | base64 --decode)
 
+SSL_PASSWORDS=("$KAFKA_CONSUMER_PASSWORD" "${SSL_PASSWORDS[@]:1}")
+
+# Configure metricsForwarder.partnersConfig for each Keycloak client ID
+METRICS_FORWARDER_CONFIG_ARGS=""
+for i in "${!KEYCLOAK_CLIENT_IDS[@]}"; do
+    if [[ -n "$METRICS_FORWARDER_CONFIG_ARGS" ]]; then
+        METRICS_FORWARDER_CONFIG_ARGS="$METRICS_FORWARDER_CONFIG_ARGS "
+    fi
+    METRICS_FORWARDER_CONFIG_ARGS="$METRICS_FORWARDER_CONFIG_ARGS--set metricsForwarder.partnersConfig.${KEYCLOAK_CLIENT_IDS[i]}.bootstrap_servers=\"${FEDERATOR_IPS[i]}:31999\" \
+        --set metricsForwarder.partnersConfig.${KEYCLOAK_CLIENT_IDS[i]}.security_protocol=\"SASL_PLAINTEXT\" \
+        --set metricsForwarder.partnersConfig.${KEYCLOAK_CLIENT_IDS[i]}.sasl_mechanism=\"PLAIN\" \
+        --set metricsForwarder.partnersConfig.${KEYCLOAK_CLIENT_IDS[i]}.sasl_plain_username=\"user1\" \
+        --set metricsForwarder.partnersConfig.${KEYCLOAK_CLIENT_IDS[i]}.sasl_plain_password=\"${SSL_PASSWORDS[i]}\""
+done
+
 # Install and setup Keycloak
 if [[ "$INSTALL_KEYCLOAK" = true ]]; then
     # Initialize array to store tokens
@@ -78,6 +152,24 @@ if [[ "$INSTALL_KEYCLOAK" = true ]]; then
         --create-namespace \
         --values values-keycloak.yaml \
         --wait
+    
+    # Login
+    ACCESS_TOKEN=$(curl -X POST http://$KEYCLOAK_IP:30080/auth/realms/master/protocol/openid-connect/token \
+                    -H "Content-Type: application/x-www-form-urlencoded" \
+                    -d "client_id=admin-cli" \
+                    -d "username=admin" \
+                    -d "password=admin" \
+                    -d "grant_type=password" \
+                    | jq -r .access_token)
+    
+    curl -X PUT \
+        -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+        -H "Content-Type: application/json" \
+        http://$KEYCLOAK_IP:30080/auth/admin/realms/master \
+        -d '{
+            "ssoSessionIdleTimeout": '$((3600*24*365))',
+            "accessTokenLifespan": '$((3600*24*365))'
+        }'
 
     for client_id in "${KEYCLOAK_CLIENT_IDS[@]}"; do
         # Login
@@ -120,7 +212,6 @@ if [[ "$INSTALL_KEYCLOAK" = true ]]; then
 
     printf '\n\n\n'
 
-    OPERATOR_ID=${KEYCLOAK_CLIENT_IDS[0]}
     CLIENT_SECRET=${CLIENT_TOKENS[$OPERATOR_ID]}
 fi
 
@@ -140,6 +231,8 @@ helm -n osm-mec upgrade --install osm-mec deployment/helm-chart --create-namespa
     --set cfsPortal.ossHost=$K8S_DEFAULT_IP \
     --set kafka.KAFKA_PRODUCER_CONFIG.sasl_plain_password=$KAFKA_PRODUCER_PASSWORD \
     --set kafka.KAFKA_CONSUMER_CONFIG.sasl_plain_password=$KAFKA_CONSUMER_PASSWORD \
+    --set metricsForwarder.enabled=$INSTALL_FEDERATOR \
+    $METRICS_FORWARDER_CONFIG_ARGS \
     --wait
 cd ..
 
@@ -149,8 +242,6 @@ if [[ "$INSTALL_FEDERATOR" = true ]]; then
     helm -n osm-mec upgrade --install mec-federator deployment/k8s/mec-federator --create-namespace \
         --set app.operatorId=$OPERATOR_ID \
         --set kafka.password=$KAFKA_PRODUCER_PASSWORD \
-        --set oauth2.clientId=$OPERATOR_ID \
-        --set oauth2.clientSecret=$CLIENT_SECRET \
         --set oauth2.tokenEndpoint="http://$KEYCLOAK_IP:30080/auth/realms/master/protocol/openid-connect/token" \
         --wait
     cd ..
