@@ -27,9 +27,6 @@ while getopts "fkc:i:p:s:u:t:a:n:l:" opt; do
     n)
       SSL_PASSWORDS=($OPTARG)
       ;;
-    l)
-      KAFKA_CONSUMER_PASSWORD="$OPTARG"
-      ;;
     \?)
       echo "Invalid option: -$OPTARG" >&2
       exit 1
@@ -95,26 +92,26 @@ KEYCLOAK_VERSION=7.1.7
 OSM_LCM_IMAGE="ghcr.io/atnog/osm-mec-mano/lcm:latest"
 OSM_NBI_IMAGE="ghcr.io/atnog/osm-mec-mano/nbi:latest"
 
-# # Install OSM
-# cd OSM
-# ./devops/installers/install_osm.sh -D devops
-# cd ..
+# Install OSM
+cd OSM
+./devops/installers/install_osm.sh -D devops
+cd ..
 
-# # Add OSM Hostname to bashrc
-# echo "export OSM_HOSTNAME=$(kubectl get --namespace osm -o jsonpath="{.spec.rules[0].host}" ingress nbi-ingress)" >> ~/.bashrc
-# export OSM_HOSTNAME=$(kubectl get --namespace osm -o jsonpath="{.spec.rules[0].host}" ingress nbi-ingress)
+# Add OSM Hostname to bashrc
+echo "export OSM_HOSTNAME=$(kubectl get --namespace osm -o jsonpath="{.spec.rules[0].host}" ingress nbi-ingress)" >> ~/.bashrc
+export OSM_HOSTNAME=$(kubectl get --namespace osm -o jsonpath="{.spec.rules[0].host}" ingress nbi-ingress)
 
-# # Remove unused OSM components
-# flux uninstall --namespace=flux-system
-# helm uninstall gitea -n gitea
-# helm uninstall crossplane -n crossplane-system
-# kubectl delete namespaces minio-osm-tenant minio-operator gitea argo crossplane-system managed-resources
-# kubectl get ns | grep minio | awk '{print $1}' | xargs -r kubectl delete ns
-# kubectl get crds | grep minio | awk '{print $1}' | xargs -r kubectl delete crd
+# Remove unused OSM components
+flux uninstall --namespace=flux-system
+helm uninstall gitea -n gitea
+helm uninstall crossplane -n crossplane-system
+kubectl delete namespaces minio-osm-tenant minio-operator gitea argo crossplane-system managed-resources
+kubectl get ns | grep minio | awk '{print $1}' | xargs -r kubectl delete ns
+kubectl get crds | grep minio | awk '{print $1}' | xargs -r kubectl delete crd
 
-# # Update OSM
-# kubectl patch deployment -n osm lcm --type='json' -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/imagePullPolicy", "value": "Always"}, {"op": "replace", "path": "/spec/template/spec/containers/0/image", "value": "ghcr.io/atnog/osm-mec-mano/lcm:latest"}]'
-# kubectl patch deployment -n osm nbi --type='json' -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/imagePullPolicy", "value": "Always"}, {"op": "replace", "path": "/spec/template/spec/containers/0/image", "value": "ghcr.io/atnog/osm-mec-mano/nbi:latest"}]'
+# Update OSM
+kubectl patch deployment -n osm lcm --type='json' -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/imagePullPolicy", "value": "Always"}, {"op": "replace", "path": "/spec/template/spec/containers/0/image", "value": "ghcr.io/atnog/osm-mec-mano/lcm:latest"}]'
+kubectl patch deployment -n osm nbi --type='json' -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/imagePullPolicy", "value": "Always"}, {"op": "replace", "path": "/spec/template/spec/containers/0/image", "value": "ghcr.io/atnog/osm-mec-mano/nbi:latest"}]'
 
 # Install osm-mec
 # Get the needed Information

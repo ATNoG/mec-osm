@@ -53,15 +53,7 @@ To install the MEC environment with Keycloak and Federator:
 To install the MEC environment with a Federator and an existing Keycloak:
 
 ```bash
-./run.sh -f -i 10.255.41.197 -p IT_AVEIRO -s "client-secret" -t "IT_AVEIRO,NOS" -a "10.255.41.197,10.255.41.185" -n "A5WA7YwIRe,UIqNLtSTxf" -l "consumer-password"
-```
-
-##### Install with IT_AVEIRO and NOS as Keycloak IDs
-
-To install the MEC environment with IT_AVEIRO and NOS as Keycloak IDs:
-
-```bash
-./run.sh -k -p IT_AVEIRO -t "IT_AVEIRO,NOS" -a "10.255.41.197,10.255.41.185" -n "A5WA7YwIRe,UIqNLtSTxf"
+./run.sh -f -i 10.255.41.197 -p NOS -s "client-secret" -t "IT_AVEIRO" -a "10.255.41.197" -n "8SalyT4ELW"
 ```
 
 ### Adding Additional Partners
