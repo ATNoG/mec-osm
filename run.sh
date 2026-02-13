@@ -72,7 +72,7 @@ if [[ "$INSTALL_KEYCLOAK" = true || "$INSTALL_FEDERATOR" = true ]]; then
         KEYCLOAK_CLIENT_IDS=()
     fi
 
-    KEYCLOAK_CLIENT_IDS=($OPERATOR_ID "${KEYCLOAK_CLIENT_IDS[@]:1}")
+    KEYCLOAK_CLIENT_IDS=($(printf "%s\n" "$OPERATOR_ID" "${KEYCLOAK_CLIENT_IDS[@]}" | awk '!seen[$0]++'))
 fi
 
 if [[ "$INSTALL_FEDERATOR" = true ]]; then
@@ -84,7 +84,8 @@ if [[ "$INSTALL_FEDERATOR" = true ]]; then
         SSL_PASSWORDS=()
     fi
     
-    FEDERATOR_IPS=($CURRENT_IP "${FEDERATOR_IPS[@]:1}")
+    FEDERATOR_IPS=($(printf "%s\n" "$CURRENT_IP" "${FEDERATOR_IPS[@]}" | awk '!seen[$0]++'))
+    
 fi
 
 
@@ -94,26 +95,26 @@ KEYCLOAK_VERSION=7.1.7
 OSM_LCM_IMAGE="ghcr.io/atnog/osm-mec-mano/lcm:latest"
 OSM_NBI_IMAGE="ghcr.io/atnog/osm-mec-mano/nbi:latest"
 
-# Install OSM
-cd OSM
-./devops/installers/install_osm.sh -D devops
-cd ..
+# # Install OSM
+# cd OSM
+# ./devops/installers/install_osm.sh -D devops
+# cd ..
 
-# Add OSM Hostname to bashrc
-echo "export OSM_HOSTNAME=$(kubectl get --namespace osm -o jsonpath="{.spec.rules[0].host}" ingress nbi-ingress)" >> ~/.bashrc
-export OSM_HOSTNAME=$(kubectl get --namespace osm -o jsonpath="{.spec.rules[0].host}" ingress nbi-ingress)
+# # Add OSM Hostname to bashrc
+# echo "export OSM_HOSTNAME=$(kubectl get --namespace osm -o jsonpath="{.spec.rules[0].host}" ingress nbi-ingress)" >> ~/.bashrc
+# export OSM_HOSTNAME=$(kubectl get --namespace osm -o jsonpath="{.spec.rules[0].host}" ingress nbi-ingress)
 
-# Remove unused OSM components
-flux uninstall --namespace=flux-system
-helm uninstall gitea -n gitea
-helm uninstall crossplane -n crossplane-system
-kubectl delete namespaces minio-osm-tenant minio-operator gitea argo crossplane-system managed-resources
-kubectl get ns | grep minio | awk '{print $1}' | xargs -r kubectl delete ns
-kubectl get crds | grep minio | awk '{print $1}' | xargs -r kubectl delete crd
+# # Remove unused OSM components
+# flux uninstall --namespace=flux-system
+# helm uninstall gitea -n gitea
+# helm uninstall crossplane -n crossplane-system
+# kubectl delete namespaces minio-osm-tenant minio-operator gitea argo crossplane-system managed-resources
+# kubectl get ns | grep minio | awk '{print $1}' | xargs -r kubectl delete ns
+# kubectl get crds | grep minio | awk '{print $1}' | xargs -r kubectl delete crd
 
-# Update OSM
-kubectl patch deployment -n osm lcm --type='json' -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/imagePullPolicy", "value": "Always"}, {"op": "replace", "path": "/spec/template/spec/containers/0/image", "value": "ghcr.io/atnog/osm-mec-mano/lcm:latest"}]'
-kubectl patch deployment -n osm nbi --type='json' -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/imagePullPolicy", "value": "Always"}, {"op": "replace", "path": "/spec/template/spec/containers/0/image", "value": "ghcr.io/atnog/osm-mec-mano/nbi:latest"}]'
+# # Update OSM
+# kubectl patch deployment -n osm lcm --type='json' -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/imagePullPolicy", "value": "Always"}, {"op": "replace", "path": "/spec/template/spec/containers/0/image", "value": "ghcr.io/atnog/osm-mec-mano/lcm:latest"}]'
+# kubectl patch deployment -n osm nbi --type='json' -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/imagePullPolicy", "value": "Always"}, {"op": "replace", "path": "/spec/template/spec/containers/0/image", "value": "ghcr.io/atnog/osm-mec-mano/nbi:latest"}]'
 
 # Install osm-mec
 # Get the needed Information
@@ -126,19 +127,17 @@ KAFKA_PORT=$(kubectl get svc -n osm kafka-controller-0-external -o jsonpath='{.s
 KAFKA_PRODUCER_PASSWORD=$(kubectl get secret -n osm kafka-user-passwords -o jsonpath="{.data.client-passwords}" | base64 --decode)
 KAFKA_CONSUMER_PASSWORD=$(kubectl get secret -n osm kafka-user-passwords -o jsonpath="{.data.client-passwords}" | base64 --decode)
 
-SSL_PASSWORDS=("$KAFKA_CONSUMER_PASSWORD" "${SSL_PASSWORDS[@]:1}")
+SSL_PASSWORDS=($(printf "%s\n" "$KAFKA_CONSUMER_PASSWORD" "${SSL_PASSWORDS[@]}" | awk '!seen[$0]++'))
 
 # Configure metricsForwarder.partnersConfig for each Keycloak client ID
 METRICS_FORWARDER_CONFIG_ARGS=""
 for i in "${!KEYCLOAK_CLIENT_IDS[@]}"; do
-    if [[ -n "$METRICS_FORWARDER_CONFIG_ARGS" ]]; then
-        METRICS_FORWARDER_CONFIG_ARGS="$METRICS_FORWARDER_CONFIG_ARGS "
-    fi
-    METRICS_FORWARDER_CONFIG_ARGS="$METRICS_FORWARDER_CONFIG_ARGS--set metricsForwarder.partnersConfig.${KEYCLOAK_CLIENT_IDS[i]}.bootstrap_servers=\"${FEDERATOR_IPS[i]}:31999\" \
-        --set metricsForwarder.partnersConfig.${KEYCLOAK_CLIENT_IDS[i]}.security_protocol=\"SASL_PLAINTEXT\" \
-        --set metricsForwarder.partnersConfig.${KEYCLOAK_CLIENT_IDS[i]}.sasl_mechanism=\"PLAIN\" \
-        --set metricsForwarder.partnersConfig.${KEYCLOAK_CLIENT_IDS[i]}.sasl_plain_username=\"user1\" \
-        --set metricsForwarder.partnersConfig.${KEYCLOAK_CLIENT_IDS[i]}.sasl_plain_password=\"${SSL_PASSWORDS[i]}\""
+    METRICS_FORWARDER_CONFIG_ARGS+=" \
+        --set metricsForwarder.partnersConfig.${KEYCLOAK_CLIENT_IDS[i]}.bootstrap_servers=${FEDERATOR_IPS[i]}:31999 \
+        --set metricsForwarder.partnersConfig.${KEYCLOAK_CLIENT_IDS[i]}.security_protocol=SASL_PLAINTEXT \
+        --set metricsForwarder.partnersConfig.${KEYCLOAK_CLIENT_IDS[i]}.sasl_mechanism=PLAIN \
+        --set metricsForwarder.partnersConfig.${KEYCLOAK_CLIENT_IDS[i]}.sasl_plain_username=user1 \
+        --set metricsForwarder.partnersConfig.${KEYCLOAK_CLIENT_IDS[i]}.sasl_plain_password=${SSL_PASSWORDS[i]}"
 done
 
 # Install and setup Keycloak

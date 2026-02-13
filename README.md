@@ -45,12 +45,12 @@ The `run.sh` script accepts the following command line options:
 To install the MEC environment with Keycloak and Federator:
 
 ```bash
-./run.sh -k -p IT_AVEIRO -t "IT_AVEIRO,NOS" -a "10.255.41.197,10.255.41.185" -n "A5WA7YwIRe,UIqNLtSTxf"
+./run.sh -f -k -p IT_AVEIRO -t "NOS" -a "10.255.41.185"
 ```
 
 ##### Install with existing Keycloak and Federator
 
-To install the MEC environment with an existing Keycloak and Federator:
+To install the MEC environment with a Federator and an existing Keycloak:
 
 ```bash
 ./run.sh -f -i 10.255.41.197 -p IT_AVEIRO -s "client-secret" -t "IT_AVEIRO,NOS" -a "10.255.41.197,10.255.41.185" -n "A5WA7YwIRe,UIqNLtSTxf" -l "consumer-password"
