@@ -61,13 +61,13 @@ To install the MEC environment with a Federator and an existing Keycloak:
 To add additional partners to the configuration, you can use Helm upgrade with the `--set` flag to specify the partner configuration. For example, to add a new partner called "NEW_PARTNER":
 
 ```bash
-helm -n osm-mec upgrade osm-mec deployment/helm-chart \
+helm -n osm-mec upgrade osm-mec osm-mec/deployment/helm-chart \
     --set metricsForwarder.partnersConfig.NEW_PARTNER.bootstrap_servers="10.255.41.198:31999" \
     --set metricsForwarder.partnersConfig.NEW_PARTNER.security_protocol="SASL_PLAINTEXT" \
     --set metricsForwarder.partnersConfig.NEW_PARTNER.sasl_mechanism="PLAIN" \
     --set metricsForwarder.partnersConfig.NEW_PARTNER.sasl_plain_username="user1" \
     --set metricsForwarder.partnersConfig.NEW_PARTNER.sasl_plain_password="new-password" \
-    --wait
+    --reuse-values --wait
 ```
 
 Each partner configuration should include:
