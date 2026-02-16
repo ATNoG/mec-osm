@@ -68,6 +68,7 @@ helm -n osm-mec upgrade osm-mec osm-mec/deployment/helm-chart \
     --set metricsForwarder.partnersConfig.NEW_PARTNER.sasl_plain_username="user1" \
     --set metricsForwarder.partnersConfig.NEW_PARTNER.sasl_plain_password="new-password" \
     --reuse-values --wait
+kubectl rollout restart deployment metrics-forwarder -n osm-mec
 ```
 
 Each partner configuration should include:
